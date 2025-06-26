@@ -38,9 +38,36 @@ exports.deletePost = async (req, res) => {
 // @route   GET /api/posts
 exports.getPosts = async (req, res) => {
   try {
-    const posts = await Post.find({}).sort({ createdAt: -1 });
+    const posts = await Post.aggregate([
+      { $sort: { createdAt: -1 } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'username',
+          foreignField: 'username',
+          as: 'authorDetails'
+        }
+      },
+      {
+        $unwind: {
+          path: '$authorDetails',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $addFields: {
+          authorRole: { $ifNull: ['$authorDetails.role', 'user'] }
+        }
+      },
+      {
+        $project: {
+          authorDetails: 0
+        }
+      }
+    ]);
     res.status(200).json({ success: true, data: posts });
   } catch (error) {
+    console.error('Error fetching posts with author role:', error);
     res.status(500).json({ success: false, error: 'Server Error' });
   }
 };
@@ -63,9 +90,14 @@ exports.createPost = async (req, res) => {
 
     await newPost.save();
 
-    req.io.emit('new_post', newPost);
+    // enrich with author role
+    const author = await User.findOne({ username });
+    const postWithRole = { ...newPost.toObject(), authorRole: author?.role || 'user' };
 
-    res.status(201).json({ data: newPost });
+    // emit to clients
+    req.io.emit('new_post', postWithRole);
+
+    res.status(201).json({ data: postWithRole });
   } catch (error) {
     console.error('Create post error:', error);
     res.status(500).json({ error: 'Server error' });
@@ -101,9 +133,13 @@ exports.likePost = async (req, res) => {
     await post.save();
 
     // Notify all clients of the updated post
-    req.io.emit('update_post', post);
+    // enrich with author role
+    const author = await User.findOne({ username: post.username });
+    const postWithRole = { ...post.toObject(), authorRole: author?.role || 'user' };
 
-    res.status(200).json({ success: true, data: post });
+    req.io.emit('update_post', postWithRole);
+
+    res.status(200).json({ success: true, data: postWithRole });
   } catch (error) {
     console.error('Like post error:', error);
     res.status(500).json({ success: false, error: 'Server Error' });

@@ -54,7 +54,7 @@ exports.loginOrRegisterUser = async (req, res) => {
 // @route   GET /api/users/:adminUsername
 exports.getAllUsers = async (req, res) => {
   try {
-    const admin = await User.findOne({ username: req.params.adminUsername });
+    const admin = await User.findOne({ username: req.query.adminUsername });
 
     if (!admin || admin.role !== 'admin') {
       return res.status(403).json({ error: 'Not authorized' });
@@ -71,7 +71,7 @@ exports.getAllUsers = async (req, res) => {
 // @route   DELETE /api/users/:usernameToDelete
 exports.deleteUser = async (req, res) => {
   const { usernameToDelete } = req.params;
-  const { adminUsername } = req.body;
+  const adminUsername = req.query.adminUsername || req.body.adminUsername; // Admin username passed from frontend
 
   try {
     const admin = await User.findOne({ username: adminUsername });
@@ -80,17 +80,30 @@ exports.deleteUser = async (req, res) => {
       return res.status(403).json({ error: 'Not authorized' });
     }
 
+    if (admin.username === usernameToDelete) {
+        return res.status(400).json({ error: 'Admins cannot delete their own accounts.' });
+    }
+
     const userToDelete = await User.findOne({ username: usernameToDelete });
     if (!userToDelete) {
       return res.status(404).json({ error: 'User to delete not found' });
     }
 
-    // Anonymize posts
-    await Post.updateMany({ username: userToDelete.username }, { $set: { username: `deleted_${userToDelete.username}`, nickname: 'Anonymous' } });
-    await User.deleteOne({ username });
+    // Find all posts by the user
+    const postsToAnonymize = await Post.find({ username: usernameToDelete });
 
-    // Notify all clients of the updated posts
-    req.io.emit('posts_updated', postsToAnonymize);
+    // Anonymize posts
+    await Post.updateMany(
+      { username: usernameToDelete },
+      { $set: { username: `deleted_${Date.now()}`, nickname: 'Anonymous' } }
+    );
+
+    // Delete the user
+    await User.deleteOne({ username: usernameToDelete });
+
+    // Notify clients to refresh data
+    req.io.emit('users_updated');
+    req.io.emit('posts_updated');
 
     res.status(200).json({ success: true, message: 'User deleted and posts anonymized.' });
   } catch (error) {

@@ -130,7 +130,7 @@ export default function Navbar() {
         </div>
       </NavLink>
       <NavLink href="/feeds">Feed</NavLink>
-      {user && <NavLink href="/post">Create Post</NavLink>}
+      <NavLink href="/post">Create Post</NavLink>
       <NavLink href="/posts">My Posts</NavLink>
       <NavLink href="/private">Private Posts</NavLink>
       {user?.role === 'admin' && <NavLink href="/admin">Admin</NavLink>}

@@ -15,19 +15,12 @@ export default function CreatePostPage() {
   const { user } = useUser();
   const { createPost } = usePosts();
 
-  useEffect(() => {
-    if (!user) {
-      router.push('/');
-    }
-  }, [user, router]);
+  // Allow all users to access this page, even if not logged in
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
-
     setLoading(true);
     setError('');
-
     try {
       await createPost(message, false, null);
       router.push('/feeds');
@@ -37,10 +30,6 @@ export default function CreatePostPage() {
       setLoading(false);
     }
   };
-
-  if (!user) {
-    return null;
-  }
 
   return (
     <div className="min-h-screen py-12 px-4 sm:px-6 relative">
@@ -91,7 +80,7 @@ export default function CreatePostPage() {
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white/50 dark:bg-black/50 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-                  placeholder={`What's on your mind, ${user.nickname}?`}
+                  placeholder={`What's on your mind, ${user ? user.nickname : 'guest'}?`}
                   rows={8}
                   required
                 />

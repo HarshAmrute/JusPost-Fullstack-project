@@ -1,8 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  eslint: {
-    ignoreDuringBuilds: true, // 👈 add this line
-  },
+  // Allow all origins in dev mode (LAN, WAN, etc.)
+  allowedDevOrigins: ['*'],
   async rewrites() {
     return [
       {
